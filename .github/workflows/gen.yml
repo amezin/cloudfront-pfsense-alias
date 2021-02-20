@@ -1,0 +1,36 @@
+name: gen
+
+on:
+  push:
+  schedule:
+    - cron:  '0 */6 * * *'
+
+jobs:
+  gen:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          path: src
+      - uses: actions/checkout@v2
+        with:
+          ref: gh-pages
+          path: pages
+      - run: curl -O https://ip-ranges.amazonaws.com/ip-ranges.json
+      - run: python3 src/genalias.py -o pages/alias.txt -6 pages/alias6.txt ip-ranges.json
+      - run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        working-directory: pages
+      - run: git add -v alias.txt alias6.txt
+        working-directory: pages
+      - run: echo "CHANGES=$(git diff --cached --name-only | tr '\n' ' ')" >> $GITHUB_ENV
+        working-directory: pages
+      - run: |
+          git commit -m "Auto-build ${{ github.ref }} on $(date)
+          Source commit ${{ github.sha }}
+          "
+        working-directory: pages
+        if: ${{ env.CHANGES != '' }}
+      - run: git push
+        working-directory: pages
